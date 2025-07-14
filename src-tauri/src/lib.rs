@@ -60,7 +60,17 @@ async fn execute_download(window: tauri::Window, options: DownloadOptions) -> Re
         env::set_var("PYTHONUTF8", "1");
     }
     
-    let mut command = TokioCommand::new("yt-dlp");
+    // yt-dlpのパスを動的に取得
+    let yt_dlp_path = get_yt_dlp_path().await?;
+    let mut command = TokioCommand::new(&yt_dlp_path);
+    
+    // macOSの場合、pyenvのパスを追加
+    #[cfg(target_os = "macos")]
+    {
+        let current_path = env::var("PATH").unwrap_or_default();
+        let pyenv_path = format!("{}:/Users/mimi/.pyenv/shims:/opt/homebrew/bin", current_path);
+        command.env("PATH", pyenv_path);
+    }
     
     // 基本オプション
     command.args(&[
@@ -311,9 +321,58 @@ async fn get_default_download_directory() -> Result<String, String> {
     }
 }
 
+async fn get_yt_dlp_path() -> Result<String, String> {
+    // macOSの場合、pyenvのパスを優先的に確認
+    #[cfg(target_os = "macos")]
+    {
+        // ユーザーホームディレクトリを動的に取得
+        let home_dir = dirs::home_dir().ok_or("ホームディレクトリを取得できませんでした")?;
+        
+        // pyenvのパスを複数の方法で確認
+        let mut pyenv_paths = vec![];
+        
+        // 1. デフォルトのpyenvパス
+        let default_pyenv = home_dir.join(".pyenv").join("shims").join("yt-dlp");
+        pyenv_paths.push(default_pyenv);
+        
+        // 2. PYENV_ROOT環境変数が設定されている場合
+        if let Ok(pyenv_root) = env::var("PYENV_ROOT") {
+            let custom_pyenv = PathBuf::from(pyenv_root).join("shims").join("yt-dlp");
+            pyenv_paths.push(custom_pyenv);
+        }
+        
+        // 3. 一般的なシステムパス
+        pyenv_paths.push(PathBuf::from("/opt/homebrew/bin/yt-dlp"));
+        pyenv_paths.push(PathBuf::from("/usr/local/bin/yt-dlp"));
+        
+        for path in pyenv_paths {
+            if path.exists() {
+                return Ok(path.to_string_lossy().to_string());
+            }
+        }
+        
+        // whichコマンドで検索
+        match Command::new("which").arg("yt-dlp").output() {
+            Ok(output) => {
+                if output.status.success() {
+                    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !path.is_empty() {
+                        return Ok(path);
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+    }
+    
+    // デフォルトは"yt-dlp"
+    Ok("yt-dlp".to_string())
+}
+
 #[tauri::command]
 async fn check_yt_dlp_installed() -> Result<bool, String> {
-    match Command::new("yt-dlp").arg("--version").output() {
+    let yt_dlp_path = get_yt_dlp_path().await?;
+    match Command::new(&yt_dlp_path).arg("--version").output() {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
     }
