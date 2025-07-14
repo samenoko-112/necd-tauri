@@ -137,29 +137,6 @@ opusやflac形式にメタデータを埋め込む際にエラーが発生する
 pip install mutagen
 ```
 
-## 開発
-
-### プロジェクト構造
-```
-necd-tauri/
-├── src/                 # Vue.jsフロントエンド
-│   ├── App.vue         # メインアプリケーション
-│   └── main.ts         # エントリーポイント
-├── src-tauri/          # Rustバックエンド
-│   ├── src/
-│   │   ├── lib.rs      # メインロジック
-│   │   └── main.rs     # エントリーポイント
-│   ├── Cargo.toml      # Rust依存関係
-│   └── tauri.conf.json # Tauri設定
-└── package.json        # Node.js依存関係
-```
-
-### 技術スタック
-- **フロントエンド**: Vue.js 3 + TypeScript
-- **バックエンド**: Rust + Tauri
-- **UI**: カスタムCSS
-- **ビルドツール**: Vite
-
 ## ライセンス
 
 MIT License
