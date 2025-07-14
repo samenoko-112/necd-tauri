@@ -77,4 +77,8 @@ export async function saveSettings(settings: any): Promise<void> {
 
 export async function loadSettings(): Promise<any> {
   return await invoke('load_settings')
+}
+
+export async function getAppVersion(): Promise<string> {
+  return await invoke('get_app_version')
 } 

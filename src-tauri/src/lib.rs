@@ -7,6 +7,12 @@ use tokio::process::Command as TokioCommand;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tauri::Emitter;
 
+// バージョン情報を取得するコマンド
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DownloadOptions {
     pub url: String,
@@ -523,6 +529,7 @@ async fn load_settings() -> Result<serde_json::Value, String> {
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            get_app_version,
             execute_download,
             get_default_download_directory,
             check_yt_dlp_installed,

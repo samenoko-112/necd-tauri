@@ -2,7 +2,7 @@
   <div class="app-container">
     <div class="header">
       <h1>NeCd</h1>
-      <span class="version">v1.1.2</span>
+              <span class="version">v{{ appVersion }}</span>
     </div>
     
     <div class="main-content">
@@ -190,7 +190,8 @@ import {
   openDirectory,
   executeDownload,
   saveSettings,
-  loadSettings
+  loadSettings,
+  getAppVersion
 } from './api'
 
 // リアクティブな状態
@@ -207,6 +208,7 @@ const thumbnailEmbed = ref(false)
 const thumbnailCrop = ref(false)
 const compatibilityMode = ref(false)
 const hdrMode = ref(false)
+const appVersion = ref('')
 
 const isDownloading = ref(false)
 const progress = ref(0)
@@ -495,19 +497,22 @@ const executeDownloadHandler = async () => {
 // 初期化
 onMounted(async () => {
   try {
-    // 1. 保存された設定を読み込み
+    // 1. アプリバージョンを取得
+    appVersion.value = await getAppVersion()
+    
+    // 2. 保存された設定を読み込み
     await loadSavedSettings()
     
-    // 2. 出力ディレクトリが設定されていない場合のみデフォルトを設定
+    // 3. 出力ディレクトリが設定されていない場合のみデフォルトを設定
     if (!outputDirectory.value) {
       outputDirectory.value = await getDefaultDownloadDirectory()
       addLog('📁 デフォルトの保存先フォルダを設定しました: ' + outputDirectory.value)
     }
     
-    // 3. yt-dlpのインストール確認
+    // 4. yt-dlpのインストール確認
     ytDlpInstalled.value = await checkYtDlpInstalled()
     
-    // 4. リアルタイムログ受信を設定
+    // 5. リアルタイムログ受信を設定
     await setupRealTimeLogging()
     
     addLog('🚀 アプリケーションの初期化が完了しました')

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NeCd",
-  "version": "1.1.2",
+  "version": "1.0.0",
   "identifier": "work.samenoko.necd",
   "build": {
     "beforeDevCommand": "npm run dev",
