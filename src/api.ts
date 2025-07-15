@@ -52,6 +52,10 @@ export async function openDirectory(path: string): Promise<void> {
   return await invoke('open_directory', { path })
 }
 
+export async function getTitleFromUrl(url: string): Promise<string> {
+  return await invoke('get_title_from_url', { url })
+}
+
 function toSnakeCase(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(toSnakeCase)

@@ -6,6 +6,8 @@ use std::fs;
 use tokio::process::Command as TokioCommand;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tauri::Emitter;
+use tauri_plugin_notification;
+use serde_json::Value;
 
 // バージョン情報を取得するコマンド
 #[tauri::command]
@@ -63,6 +65,11 @@ async fn execute_download(window: tauri::Window, options: DownloadOptions) -> Re
     // yt-dlpのパスを動的に取得
     let yt_dlp_path = get_yt_dlp_path().await?;
     let mut command = TokioCommand::new(&yt_dlp_path);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
     
     // macOSの場合、pyenvのパスを追加
     #[cfg(target_os = "macos")]
@@ -321,6 +328,33 @@ async fn get_default_download_directory() -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+async fn get_title_from_url(url: String) -> Result<String, String> {
+    use tokio::process::Command;
+    let mut cmd = Command::new("yt-dlp");
+    cmd.arg("-J")
+        .arg("--flat-playlist")
+        .arg(&url);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let output = cmd.output()
+        .await
+        .map_err(|e| format!("yt-dlp実行エラー: {}", e))?;
+    if !output.status.success() {
+        return Err(format!("yt-dlpエラー: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    let json: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("JSONパースエラー: {}", e))?;
+    if let Some(title) = json.get("title").and_then(|v| v.as_str()) {
+        Ok(title.to_string())
+    } else {
+        Err("タイトルが取得できませんでした".to_string())
+    }
+}
+
 async fn get_yt_dlp_path() -> Result<String, String> {
     // macOSの場合、pyenvのパスを優先的に確認
     #[cfg(target_os = "macos")]
@@ -428,8 +462,11 @@ async fn read_clipboard() -> Result<String, String> {
     // Windowsの場合
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         use std::process::Command;
-        match Command::new("powershell")
+        let mut cmd = Command::new("powershell");
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        match cmd
             .args(&["-command", "Get-Clipboard"])
             .output()
         {
@@ -587,6 +624,7 @@ async fn load_settings() -> Result<serde_json::Value, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             get_app_version,
             execute_download,
@@ -598,7 +636,8 @@ pub fn run() {
             select_file,
             open_directory,
             save_settings,
-            load_settings
+            load_settings,
+            get_title_from_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

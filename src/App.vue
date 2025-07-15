@@ -191,8 +191,10 @@ import {
   executeDownload,
   saveSettings,
   loadSettings,
-  getAppVersion
+  getAppVersion,
+  getTitleFromUrl
 } from './api'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 
 // リアクティブな状態
 const url = ref('')
@@ -209,6 +211,7 @@ const thumbnailCrop = ref(false)
 const compatibilityMode = ref(false)
 const hdrMode = ref(false)
 const appVersion = ref('')
+const downloadTitle = ref<string | null>(null)
 
 const isDownloading = ref(false)
 const progress = ref(0)
@@ -444,6 +447,14 @@ const executeDownloadHandler = async () => {
     addLog('❌ 保存先フォルダを選択してください', true)
     return
   }
+  // ダウンロード対象のタイトルを事前取得
+  downloadTitle.value = null
+  try {
+    downloadTitle.value = await getTitleFromUrl(url.value)
+    addLog('ℹ️ タイトル取得: ' + downloadTitle.value)
+  } catch (e) {
+    addLog('⚠️ タイトル取得に失敗: ' + e, true)
+  }
   // yt-dlpのインストール確認
   try {
     ytDlpInstalled.value = await checkYtDlpInstalled()
@@ -484,11 +495,24 @@ const executeDownloadHandler = async () => {
     } else {
       progress.value = 100
       addLog(result.message)
+      let granted = await isPermissionGranted()
+      if (!granted) {
+        granted = (await requestPermission()) === 'granted'
+      }
+      if (granted) {
+        sendNotification({
+          title: 'ダウンロード完了',
+          body: downloadTitle.value
+            ? `「${downloadTitle.value}」のダウンロードが正常に完了しました。`
+            : 'ダウンロードが正常に完了しました。'
+        })
+      }
     }
   } catch (e) {
     isError.value = true
     progress.value = 0
     addLog(`❌ 予期せぬエラーが発生しました: ${e}`, true)
+    sendNotification({ title: 'エラー', body: `予期せぬエラーが発生しました: ${e}` })
   } finally {
     isDownloading.value = false
   }
